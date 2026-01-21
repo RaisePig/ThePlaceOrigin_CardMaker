@@ -85,7 +85,7 @@ export const loadImage = async (path: string): Promise<HTMLImageElement> => {
  * 预加载所有资源
  */
 export const preloadAllResources = async (): Promise<void> => {
-  const paths = Object.keys(RESOURCE_MAP)
+  const paths = Object.keys(RESOURCE_PATHS)
   await Promise.all(paths.map(path => loadResourceAsBase64(path)))
 }
 
