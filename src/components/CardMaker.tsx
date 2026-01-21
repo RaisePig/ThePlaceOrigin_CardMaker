@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { CardData, Skill, Attributes } from '../types/card'
 import CardPreview from './CardPreview'
 import CardForm from './CardForm'
+import { generateCardPreview, downloadFromPreview } from '../utils/downloadCard'
 
 export default function CardMaker() {
   const [cardData, setCardData] = useState<CardData>({
@@ -25,6 +26,57 @@ export default function CardMaker() {
 
   const [isDragging, setIsDragging] = useState(false)
   const portraitRef = useRef<HTMLDivElement>(null)
+  const cardContainerRef = useRef<HTMLDivElement>(null)
+
+  // 预览相关状态
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewType, setPreviewType] = useState<'original' | 'thumbnail' | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  // 预览原图
+  const handlePreviewOriginal = async () => {
+    setPreviewLoading(true)
+    setPreviewType('original')
+    try {
+      const url = await generateCardPreview(cardData, 1)
+      setPreviewUrl(url)
+    } catch (error) {
+      console.error('生成预览失败:', error)
+      alert('生成预览失败，请重试')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  // 预览缩略图
+  const handlePreviewThumbnail = async () => {
+    setPreviewLoading(true)
+    setPreviewType('thumbnail')
+    try {
+      const url = await generateCardPreview(cardData, 0.5)
+      setPreviewUrl(url)
+    } catch (error) {
+      console.error('生成预览失败:', error)
+      alert('生成预览失败，请重试')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  // 下载预览图
+  const handleDownloadPreview = () => {
+    if (!previewUrl) return
+    const filename = previewType === 'original' 
+      ? `card-${cardData.id || 'card'}.png`
+      : `card-${cardData.id || 'card'}-thumb.png`
+    downloadFromPreview(previewUrl, filename)
+  }
+
+  // 取消预览
+  const handleCancelPreview = () => {
+    setPreviewUrl(null)
+    setPreviewType(null)
+  }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -147,6 +199,7 @@ export default function CardMaker() {
           onPortraitMouseDown={handlePortraitMouseDown}
           onPortraitWheel={handlePortraitWheel}
           portraitRef={portraitRef}
+          cardContainerRef={cardContainerRef}
         />
       </div>
 
@@ -162,6 +215,13 @@ export default function CardMaker() {
           onSetUltimate={setUltimate}
           onRemoveUltimate={removeUltimate}
           onUpdateAttribute={updateAttribute}
+          onPreviewOriginal={handlePreviewOriginal}
+          onPreviewThumbnail={handlePreviewThumbnail}
+          previewUrl={previewUrl}
+          previewType={previewType}
+          previewLoading={previewLoading}
+          onDownloadPreview={handleDownloadPreview}
+          onCancelPreview={handleCancelPreview}
         />
       </div>
     </div>

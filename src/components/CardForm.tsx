@@ -13,6 +13,14 @@ interface CardFormProps {
   onSetUltimate: (field: keyof Skill, value: string) => void
   onRemoveUltimate: () => void
   onUpdateAttribute: (field: keyof Attributes, value: number | string) => void
+  // 预览相关
+  onPreviewOriginal: () => void
+  onPreviewThumbnail: () => void
+  previewUrl: string | null
+  previewType: 'original' | 'thumbnail' | null
+  previewLoading: boolean
+  onDownloadPreview: () => void
+  onCancelPreview: () => void
 }
 
 export default function CardForm({
@@ -24,7 +32,14 @@ export default function CardForm({
   onRemoveSkill,
   onSetUltimate,
   onRemoveUltimate,
-  onUpdateAttribute
+  onUpdateAttribute,
+  onPreviewOriginal,
+  onPreviewThumbnail,
+  previewUrl,
+  previewType,
+  previewLoading,
+  onDownloadPreview,
+  onCancelPreview
 }: CardFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -249,7 +264,7 @@ export default function CardForm({
         </label>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <label className="block text-xs text-gray-600 mb-1">力量 (0-9)</label>
+            <label className="block text-xs text-gray-600 mb-1">生命 (0-9)</label>
             <input
               type="number"
               min="0"
@@ -271,7 +286,7 @@ export default function CardForm({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-600 mb-1">生命 (0-9)</label>
+            <label className="block text-xs text-gray-600 mb-1">战斗 (0-9)</label>
             <input
               type="number"
               min="0"
@@ -291,6 +306,76 @@ export default function CardForm({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
           </div>
+        </div>
+      </div>
+
+      {/* 下载按钮 */}
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">导出卡牌</h3>
+        
+        {/* 预览图显示区域 */}
+        {(previewUrl || previewLoading) && (
+          <div className="mb-4 border border-gray-300 rounded-lg overflow-hidden bg-white">
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">生成预览中...</span>
+              </div>
+            ) : previewUrl && (
+              <div className="relative">
+                <img 
+                  src={previewUrl} 
+                  alt="卡牌预览" 
+                  className="w-full h-auto"
+                />
+                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                  {previewType === 'original' ? '原图' : '缩略图'}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 按钮区域 */}
+        {previewUrl ? (
+          // 预览模式：显示下载和取消按钮
+          <div className="flex flex-col sm:flex-row gap-3 mb-3">
+            <button
+              onClick={onDownloadPreview}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              下载图片
+            </button>
+            <button
+              onClick={onCancelPreview}
+              className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+            >
+              取消
+            </button>
+          </div>
+        ) : (
+          // 正常模式：显示预览按钮
+          <div className="flex flex-col sm:flex-row gap-3 mb-3">
+            <button
+              onClick={onPreviewOriginal}
+              disabled={previewLoading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              预览原图
+            </button>
+            <button
+              onClick={onPreviewThumbnail}
+              disabled={previewLoading}
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              预览缩略图
+            </button>
+          </div>
+        )}
+
+        <div className="text-xs text-gray-600 space-y-1">
+          <p>• 原图：底图原始尺寸，适用于打印</p>
+          <p>• 缩略图：原图一半尺寸，适用于 Tabletop Simulator 等</p>
         </div>
       </div>
     </div>
