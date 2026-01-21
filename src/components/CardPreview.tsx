@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { CardData } from '../types/card'
+import { loadImage, getBgImagePath, getSkillIconPath, getUniqueIconPath, drawWatermark } from '../utils/resourceLoader'
 import {
   NAME_POSITION_X,
   NAME_POSITION_Y,
@@ -140,15 +141,6 @@ const calculateWrappedTextLayout = (
   return { lines, fontSize, lineHeight, textHeight }
 }
 
-// 根据等级获取底图路径
-const getBgImagePath = (level: 'SR' | 'SSR' | 'UR') => {
-  switch (level) {
-    case 'SR': return '/resources/bg.png'
-    case 'SSR': return '/resources/bg_2.png'
-    case 'UR': return '/resources/bg_3.png'
-    default: return '/resources/bg.png'
-  }
-}
 
 export default function CardPreview({ cardData, isDragging, onPortraitMouseDown, onPortraitWheel, portraitRef, cardContainerRef: externalCardContainerRef }: CardPreviewProps) {
   const internalCardContainerRef = useRef<HTMLDivElement>(null)
@@ -164,17 +156,21 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
   const [uniqueIconImage, setUniqueIconImage] = useState<HTMLImageElement | null>(null)
   const [bgOriginalSize, setBgOriginalSize] = useState({ width: 0, height: 0 })
 
-  // 根据等级加载对应底图
+  // 根据等级加载对应底图（使用 Base64 缓存）
   useEffect(() => {
-    const img = new Image()
-    img.onload = () => {
-      setBgImage(img)
-      setBgOriginalSize({ width: img.naturalWidth, height: img.naturalHeight })
+    const loadBg = async () => {
+      try {
+        const img = await loadImage(getBgImagePath(cardData.level))
+        setBgImage(img)
+        setBgOriginalSize({ width: img.naturalWidth, height: img.naturalHeight })
+      } catch (e) {
+        console.error('底图加载失败:', e)
+      }
     }
-    img.src = getBgImagePath(cardData.level)
+    loadBg()
   }, [cardData.level])
 
-  // 加载立绘图片
+  // 加载立绘图片（用户上传的图片，不需要 Base64 转换）
   useEffect(() => {
     if (cardData.portrait) {
       const img = new Image()
@@ -192,34 +188,38 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
     }
   }, [cardData.portrait])
 
-  // 加载技能和绝技背景图片
+  // 加载技能和绝技背景图片（使用 Base64 缓存）
   useEffect(() => {
-    const skillImg = new Image()
-    skillImg.onload = () => setSkillBgImage(skillImg)
-    skillImg.src = '/resources/skill_bg.png'
-
-    const uniqueImg = new Image()
-    uniqueImg.onload = () => setUniqueBgImage(uniqueImg)
-    uniqueImg.src = '/resources/unique_bg.png'
+    const loadBgs = async () => {
+      try {
+        const [skillBg, uniqueBg] = await Promise.all([
+          loadImage('/resources/skill_bg.png'),
+          loadImage('/resources/unique_bg.png')
+        ])
+        setSkillBgImage(skillBg)
+        setUniqueBgImage(uniqueBg)
+      } catch (e) {
+        console.error('技能背景加载失败:', e)
+      }
+    }
+    loadBgs()
   }, [])
 
-  // 根据等级加载对应的技能和绝技标识图片
+  // 根据等级加载对应的技能和绝技标识图片（使用 Base64 缓存）
   useEffect(() => {
-    // 根据等级选择标识图片
-    const skillIconPath = cardData.level === 'SR' ? '/resources/skill.png' 
-      : cardData.level === 'SSR' ? '/resources/skill_2.png' 
-      : '/resources/skill_3.png'
-    const uniqueIconPath = cardData.level === 'SR' ? '/resources/unique.png'
-      : cardData.level === 'SSR' ? '/resources/unique_2.png'
-      : '/resources/unique_3.png'
-
-    const skillIcon = new Image()
-    skillIcon.onload = () => setSkillIconImage(skillIcon)
-    skillIcon.src = skillIconPath
-
-    const uniqueIcon = new Image()
-    uniqueIcon.onload = () => setUniqueIconImage(uniqueIcon)
-    uniqueIcon.src = uniqueIconPath
+    const loadIcons = async () => {
+      try {
+        const [skillIcon, uniqueIcon] = await Promise.all([
+          loadImage(getSkillIconPath(cardData.level)),
+          loadImage(getUniqueIconPath(cardData.level))
+        ])
+        setSkillIconImage(skillIcon)
+        setUniqueIconImage(uniqueIcon)
+      } catch (e) {
+        console.error('技能标识加载失败:', e)
+      }
+    }
+    loadIcons()
   }, [cardData.level])
 
   // 渲染 Canvas
@@ -480,6 +480,9 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
 
     // 恢复文字对齐方式
     ctx.textAlign = 'center'
+
+    // ========== 层级6: 水印 ==========
+    drawWatermark(ctx, width, height)
   }, [bgImage, portraitImage, cardData, skillBgImage, uniqueBgImage, skillIconImage, uniqueIconImage])
 
   // 当数据变化时重新渲染
@@ -512,18 +515,20 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
       </div>
       <div 
         ref={cardContainerRef}
-        className="w-full overflow-hidden relative rounded-lg ring-2 ring-slate-600/50"
+        className="w-full overflow-hidden relative rounded-lg ring-2 ring-slate-600/50 protected-resource"
         style={{
           aspectRatio: bgOriginalSize.width > 0 && bgOriginalSize.height > 0 
             ? `${bgOriginalSize.width} / ${bgOriginalSize.height}` 
             : '2 / 3'
         }}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {/* 使用 Canvas 渲染 */}
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full"
           style={{ imageRendering: 'auto' }}
+          onContextMenu={(e) => e.preventDefault()}
         />
         
         {/* 透明的交互层，用于拖拽立绘 */}

@@ -1,6 +1,60 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import CardMaker from './components/CardMaker'
 import Feedback from './components/Feedback'
+
+// 资源保护 Hook
+function useResourceProtection() {
+  useEffect(() => {
+    // 禁用右键菜单
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // 对图片、canvas 和带有 protected 类的元素禁用右键
+      if (
+        target.tagName === 'IMG' ||
+        target.tagName === 'CANVAS' ||
+        target.closest('.protected-resource') ||
+        target.closest('canvas')
+      ) {
+        e.preventDefault()
+        return false
+      }
+    }
+
+    // 禁用拖拽
+    const handleDragStart = (e: DragEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'IMG' || target.tagName === 'CANVAS') {
+        e.preventDefault()
+        return false
+      }
+    }
+
+    // 禁用某些快捷键（Ctrl+S, Ctrl+U, Ctrl+Shift+I 等）
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S (保存)
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault()
+        return false
+      }
+      // Ctrl+U (查看源代码)
+      if (e.ctrlKey && e.key === 'u') {
+        e.preventDefault()
+        return false
+      }
+    }
+
+    document.addEventListener('contextmenu', handleContextMenu)
+    document.addEventListener('dragstart', handleDragStart)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu)
+      document.removeEventListener('dragstart', handleDragStart)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+}
 
 // 导航组件
 function Navigation() {
@@ -130,6 +184,9 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  // 启用资源保护
+  useResourceProtection()
+
   return (
     <Router>
       <Layout>

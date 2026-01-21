@@ -1,5 +1,6 @@
 // 卡牌下载工具函数 - 使用 Canvas API 直接绘制
 
+import { loadImage, getBgImagePath, getSkillIconPath, getUniqueIconPath, drawWatermark } from './resourceLoader'
 import {
   NAME_POSITION_X,
   NAME_POSITION_Y,
@@ -135,9 +136,9 @@ const calculateWrappedTextLayout = (
 }
 
 /**
- * 加载图片
+ * 加载用户上传的立绘图片（不走 Base64 缓存）
  */
-const loadImage = (src: string): Promise<HTMLImageElement> => {
+const loadPortraitImage = (src: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
@@ -145,42 +146,6 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
     img.onerror = reject
     img.src = src
   })
-}
-
-/**
- * 根据等级获取底图路径
- */
-const getBgImagePath = (level: 'SR' | 'SSR' | 'UR') => {
-  switch (level) {
-    case 'SR': return '/resources/bg.png'
-    case 'SSR': return '/resources/bg_2.png'
-    case 'UR': return '/resources/bg_3.png'
-    default: return '/resources/bg.png'
-  }
-}
-
-/**
- * 根据等级获取技能标识图片路径
- */
-const getSkillIconPath = (level: 'SR' | 'SSR' | 'UR') => {
-  switch (level) {
-    case 'SR': return '/resources/skill.png'
-    case 'SSR': return '/resources/skill_2.png'
-    case 'UR': return '/resources/skill_3.png'
-    default: return '/resources/skill.png'
-  }
-}
-
-/**
- * 根据等级获取绝技标识图片路径
- */
-const getUniqueIconPath = (level: 'SR' | 'SSR' | 'UR') => {
-  switch (level) {
-    case 'SR': return '/resources/unique.png'
-    case 'SSR': return '/resources/unique_2.png'
-    case 'UR': return '/resources/unique_3.png'
-    default: return '/resources/unique.png'
-  }
 }
 
 /**
@@ -209,7 +174,7 @@ const generateFullSizeCanvas = async (
 
   // ========== 层级2: 上传的立绘 ==========
   if (cardData.portrait) {
-    const portraitImg = await loadImage(cardData.portrait)
+    const portraitImg = await loadPortraitImage(cardData.portrait)
     const targetWidth = width * cardData.portraitScale
     const aspectRatio = portraitImg.naturalHeight / portraitImg.naturalWidth
     const targetHeight = targetWidth * aspectRatio
@@ -442,6 +407,9 @@ const generateFullSizeCanvas = async (
 
   // 恢复文字对齐方式
   ctx.textAlign = 'center'
+
+  // ========== 层级6: 水印 ==========
+  drawWatermark(ctx, width, height)
 
   return canvas
 }

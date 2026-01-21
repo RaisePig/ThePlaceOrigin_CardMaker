@@ -6,12 +6,28 @@ interface FeedbackBody {
   contact?: string
 }
 
+// CORS 头
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json'
+}
+
 export default async (request: Request) => {
+  // 处理 OPTIONS 预检请求
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    })
+  }
+
   // 只允许 POST 请求
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: '方法不允许' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' }
+      headers: corsHeaders
     })
   }
 
@@ -22,17 +38,17 @@ export default async (request: Request) => {
     if (!body.type || !body.content) {
       return new Response(JSON.stringify({ error: '请填写反馈类型和内容' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' }
+        headers: corsHeaders
       })
     }
 
-    // 连接 Neon 数据库（Netlify 自动注入的环境变量名为 NETLIFY_DATABASE_URL）
+    // 连接 Neon 数据库
     const databaseUrl = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL
     if (!databaseUrl) {
       console.error('数据库环境变量未设置')
-      return new Response(JSON.stringify({ error: '服务器配置错误' }), {
+      return new Response(JSON.stringify({ error: '服务器配置错误，请联系管理员' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: corsHeaders
       })
     }
 
@@ -46,13 +62,14 @@ export default async (request: Request) => {
 
     return new Response(JSON.stringify({ success: true, message: '反馈提交成功，感谢您的意见！' }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: corsHeaders
     })
   } catch (error) {
     console.error('提交反馈失败:', error)
-    return new Response(JSON.stringify({ error: '提交失败，请稍后重试' }), {
+    const errorMessage = error instanceof Error ? error.message : '未知错误'
+    return new Response(JSON.stringify({ error: '提交失败，请稍后重试', detail: errorMessage }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: corsHeaders
     })
   }
 }
