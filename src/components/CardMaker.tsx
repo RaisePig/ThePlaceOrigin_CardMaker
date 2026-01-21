@@ -80,14 +80,20 @@ export default function CardMaker() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    console.log('文件上传:', file?.name, file?.type)
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader()
       reader.onload = (event) => {
+        const result = event.target?.result as string
+        console.log('文件读取完成, 长度:', result?.length)
         setCardData(prev => ({
           ...prev,
-          portrait: event.target?.result as string,
+          portrait: result,
           portraitScale: 0.5 // 自动缩放至底图的一半
         }))
+      }
+      reader.onerror = (err) => {
+        console.error('文件读取失败:', err)
       }
       reader.readAsDataURL(file)
     }

@@ -23,40 +23,41 @@ import {
   CATEGORY_FONT_SIZE,
   CATEGORY_FONT_SIZE_SMALL,
   TEXT_STROKE_WIDTH,
-  SKILL_AREA_X,
-  SKILL_AREA_WIDTH,
-  SKILL_AREA_HEIGHT,
+  SKILL_BG_WIDTH,
+  SKILL_BG_X,
+  ULTIMATE_BG_X,
+  ULTIMATE_BG_WIDTH,
   SKILL_ICON_WIDTH,
   SKILL_ICON_HEIGHT,
-  SKILL_1_ICON_X,
-  SKILL_1_ICON_Y,
-  SKILL_2_ICON_X,
-  SKILL_2_ICON_Y,
-  SKILL_1_Y,
-  SKILL_1_NAME_X,
-  SKILL_1_NAME_Y,
-  SKILL_1_DESC_X,
-  SKILL_1_DESC_Y,
-  SKILL_2_Y,
-  SKILL_2_NAME_X,
-  SKILL_2_NAME_Y,
-  SKILL_2_DESC_X,
-  SKILL_2_DESC_Y,
+  SKILL_ICON_X,
   ULTIMATE_ICON_WIDTH,
   ULTIMATE_ICON_HEIGHT,
   ULTIMATE_ICON_X,
-  ULTIMATE_ICON_Y,
-  ULTIMATE_Y,
-  ULTIMATE_NAME_X,
-  ULTIMATE_NAME_Y,
-  ULTIMATE_DESC_X,
-  ULTIMATE_DESC_Y,
   SKILL_NAME_FONT_SIZE,
   SKILL_DESC_FONT_SIZE,
   ULTIMATE_NAME_FONT_SIZE,
   ULTIMATE_DESC_FONT_SIZE,
   SKILL_NAME_STROKE_WIDTH,
-  SKILL_DESC_STROKE_WIDTH
+  SKILL_DESC_STROKE_WIDTH,
+  SKILL_START_OFFSET,
+  SKILL_GAP,
+  SKILL_ICON_TO_BG_OFFSET,
+  ULTIMATE_ICON_TO_BG_OFFSET,
+  SKILL_NAME_OFFSET_X,
+  SKILL_NAME_OFFSET_Y,
+  ULTIMATE_NAME_OFFSET_X,
+  ULTIMATE_NAME_OFFSET_Y,
+  SSR_ID_POSITION_X,
+  SSR_ID_POSITION_Y,
+  SSR_NAME_POSITION_Y,
+  SSR_POWER_POSITION_Y,
+  SSR_AGILITY_POSITION_Y,
+  UR_ID_POSITION_X,
+  UR_ID_POSITION_Y,
+  UR_NAME_POSITION_X,
+  UR_NAME_POSITION_Y,
+  UR_POWER_POSITION_Y,
+  UR_AGILITY_POSITION_Y
 } from '../constants/cardPositions'
 
 interface CardPreviewProps {
@@ -82,6 +83,61 @@ const drawStrokedText = (
   ctx.miterLimit = 2
   ctx.strokeText(text, x, y)
   ctx.fillText(text, x, y)
+}
+
+// 计算自动换行文字的布局信息
+const calculateWrappedTextLayout = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  baseLineHeight: number,
+  baseFontSize: number,
+  fontFamily: string
+) => {
+  let fontSize = baseFontSize
+  let lines: string[] = []
+  let reductionCount = 0
+  
+  const calculateLines = (size: number): string[] => {
+    ctx.font = `${size}px ${fontFamily}`
+    const words = text.split('')
+    const result: string[] = []
+    let currentLine = ''
+    
+    for (const char of words) {
+      const testLine = currentLine + char
+      const metrics = ctx.measureText(testLine)
+      if (metrics.width > maxWidth && currentLine !== '') {
+        result.push(currentLine)
+        currentLine = char
+      } else {
+        currentLine = testLine
+      }
+    }
+    if (currentLine) {
+      result.push(currentLine)
+    }
+    return result
+  }
+  
+  lines = calculateLines(fontSize)
+  
+  if (lines.length > 3) {
+    fontSize -= 3
+    reductionCount++
+    lines = calculateLines(fontSize)
+    
+    if (lines.length > 4) {
+      fontSize -= 3
+      reductionCount++
+      lines = calculateLines(fontSize)
+    }
+  }
+  
+  const lineHeight = baseLineHeight - reductionCount * 3
+  const textHeight = lines.length > 0 ? (lines.length - 1) * lineHeight + fontSize : 0
+  
+  return { lines, fontSize, lineHeight, textHeight }
 }
 
 // 根据等级获取底图路径
@@ -122,14 +178,21 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
   useEffect(() => {
     if (cardData.portrait) {
       const img = new Image()
-      img.onload = () => setPortraitImage(img)
+      img.onload = () => {
+        console.log('立绘加载成功:', img.naturalWidth, 'x', img.naturalHeight)
+        setPortraitImage(img)
+      }
+      img.onerror = (e) => {
+        console.error('立绘加载失败:', e)
+        setPortraitImage(null)
+      }
       img.src = cardData.portrait
     } else {
       setPortraitImage(null)
     }
   }, [cardData.portrait])
 
-  // 加载技能和绝技背景图片及标识图片
+  // 加载技能和绝技背景图片
   useEffect(() => {
     const skillImg = new Image()
     skillImg.onload = () => setSkillBgImage(skillImg)
@@ -138,15 +201,26 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
     const uniqueImg = new Image()
     uniqueImg.onload = () => setUniqueBgImage(uniqueImg)
     uniqueImg.src = '/resources/unique_bg.png'
+  }, [])
+
+  // 根据等级加载对应的技能和绝技标识图片
+  useEffect(() => {
+    // 根据等级选择标识图片
+    const skillIconPath = cardData.level === 'SR' ? '/resources/skill.png' 
+      : cardData.level === 'SSR' ? '/resources/skill_2.png' 
+      : '/resources/skill_3.png'
+    const uniqueIconPath = cardData.level === 'SR' ? '/resources/unique.png'
+      : cardData.level === 'SSR' ? '/resources/unique_2.png'
+      : '/resources/unique_3.png'
 
     const skillIcon = new Image()
     skillIcon.onload = () => setSkillIconImage(skillIcon)
-    skillIcon.src = '/resources/skill.png'
+    skillIcon.src = skillIconPath
 
     const uniqueIcon = new Image()
     uniqueIcon.onload = () => setUniqueIconImage(uniqueIcon)
-    uniqueIcon.src = '/resources/unique.png'
-  }, [])
+    uniqueIcon.src = uniqueIconPath
+  }, [cardData.level])
 
   // 渲染 Canvas
   const renderCanvas = useCallback(() => {
@@ -166,33 +240,153 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
     // 清空画布
     ctx.clearRect(0, 0, width, height)
 
-    // 绘制立绘（在底图之前）
-    if (portraitImage && cardData.portrait) {
-      const pWidth = width * cardData.portraitScale
-      const pHeight = height * cardData.portraitScale
-      const pX = (cardData.portraitPosition.x / 100) * width - pWidth / 2
-      const pY = (cardData.portraitPosition.y / 100) * height - pHeight / 2
-      ctx.drawImage(portraitImage, pX, pY, pWidth, pHeight)
-    }
-
-    // 绘制底图
+    // ========== 层级1: 底图 ==========
     ctx.drawImage(bgImage, 0, 0, width, height)
+
+    // ========== 层级2: 上传的立绘 ==========
+    if (portraitImage && cardData.portrait) {
+      const targetWidth = width * cardData.portraitScale
+      const aspectRatio = portraitImage.naturalHeight / portraitImage.naturalWidth
+      const targetHeight = targetWidth * aspectRatio
+      const pX = (cardData.portraitPosition.x / 100) * width - targetWidth / 2
+      const pY = (cardData.portraitPosition.y / 100) * height - targetHeight / 2
+      ctx.drawImage(portraitImage, pX, pY, targetWidth, targetHeight)
+    }
 
     // 设置文字基础样式
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#fff'
 
+    // 根据等级获取位置
+    const isSSR = cardData.level === 'SSR'
+    const isUR = cardData.level === 'UR'
+    
+    let idX = ID_POSITION_X
+    let idY = ID_POSITION_Y
+    let nameX = NAME_POSITION_X
+    let nameY = NAME_POSITION_Y
+    let powerY = POWER_POSITION_Y
+    let agilityY = AGILITY_POSITION_Y
+    
+    if (isSSR) {
+      idX = SSR_ID_POSITION_X
+      idY = SSR_ID_POSITION_Y
+      nameY = SSR_NAME_POSITION_Y
+      powerY = SSR_POWER_POSITION_Y
+      agilityY = SSR_AGILITY_POSITION_Y
+    } else if (isUR) {
+      idX = UR_ID_POSITION_X
+      idY = UR_ID_POSITION_Y
+      nameX = UR_NAME_POSITION_X
+      nameY = UR_NAME_POSITION_Y
+      powerY = UR_POWER_POSITION_Y
+      agilityY = UR_AGILITY_POSITION_Y
+    }
+
+    // 动态布局：先计算所有元素高度和位置
+    const skillHeights: number[] = []
+    const skillPositions: { iconY: number, bgY: number, nameX: number, nameY: number, bgHeight: number }[] = []
+    
+    cardData.skills.forEach((skill) => {
+      if (skill.description && skillBgImage) {
+        const descMaxWidth = width - 2 * 60
+        const lineHeight = SKILL_DESC_FONT_SIZE + 8
+        const { textHeight } = calculateWrappedTextLayout(
+          ctx, skill.description, descMaxWidth, lineHeight, SKILL_DESC_FONT_SIZE, 'Font1, sans-serif'
+        )
+        const bgHeight = textHeight + 20 * 2
+        skillHeights.push(SKILL_ICON_TO_BG_OFFSET + bgHeight)
+      } else {
+        skillHeights.push(SKILL_ICON_HEIGHT)
+      }
+    })
+    
+    let ultimateHeight = 0
+    let ultimateBgHeight = 0
+    if (cardData.ultimate) {
+      if (cardData.ultimate.description && uniqueBgImage) {
+        const descMaxWidth = width - 2 * 60
+        const lineHeight = ULTIMATE_DESC_FONT_SIZE + 8
+        const { textHeight } = calculateWrappedTextLayout(
+          ctx, cardData.ultimate.description, descMaxWidth, lineHeight, ULTIMATE_DESC_FONT_SIZE, 'Font1, sans-serif'
+        )
+        ultimateBgHeight = textHeight + 20 * 2
+        ultimateHeight = ULTIMATE_ICON_TO_BG_OFFSET + ultimateBgHeight
+      } else {
+        ultimateHeight = ULTIMATE_ICON_HEIGHT
+      }
+    }
+    
+    const totalHeight = skillHeights.reduce((sum, h) => sum + h, 0) 
+      + (cardData.skills.length > 0 && cardData.ultimate ? SKILL_GAP : 0)
+      + (cardData.skills.length > 1 ? SKILL_GAP : 0)
+      + ultimateHeight
+    
+    let currentIconY = height - SKILL_START_OFFSET - totalHeight
+    
+    // 预计算所有位置
+    cardData.skills.forEach((_, index) => {
+      const iconY = currentIconY
+      const bgY = iconY + SKILL_ICON_TO_BG_OFFSET
+      skillPositions.push({
+        iconY,
+        bgY,
+        nameX: SKILL_ICON_X + SKILL_NAME_OFFSET_X,
+        nameY: iconY + SKILL_NAME_OFFSET_Y,
+        bgHeight: skillHeights[index] - SKILL_ICON_TO_BG_OFFSET
+      })
+      currentIconY = iconY + skillHeights[index] + SKILL_GAP
+    })
+    
+    const ultimateIconY = currentIconY
+    const ultimateBgY = ultimateIconY + ULTIMATE_ICON_TO_BG_OFFSET
+    const ultimateNameX = ULTIMATE_ICON_X + ULTIMATE_ICON_WIDTH + ULTIMATE_NAME_OFFSET_X
+    const ultimateNameY = ultimateIconY + ULTIMATE_NAME_OFFSET_Y
+
+    // ========== 层级3: 技能/绝技的黑色底色 ==========
+    // 绘制技能背景
+    cardData.skills.forEach((skill, index) => {
+      if (skill.description && skillBgImage) {
+        const pos = skillPositions[index]
+        const { textHeight } = calculateWrappedTextLayout(
+          ctx, skill.description, width - 2 * 60, SKILL_DESC_FONT_SIZE + 8, SKILL_DESC_FONT_SIZE, 'Font1, sans-serif'
+        )
+        const bgHeight = textHeight + 20 * 2
+        ctx.drawImage(skillBgImage, SKILL_BG_X, pos.bgY, SKILL_BG_WIDTH, bgHeight)
+      }
+    })
+    
+    // 绘制绝技背景
+    if (cardData.ultimate && cardData.ultimate.description && uniqueBgImage) {
+      ctx.drawImage(uniqueBgImage, ULTIMATE_BG_X, ultimateBgY, ULTIMATE_BG_WIDTH, ultimateBgHeight)
+    }
+
+    // ========== 层级4: 技能/绝技标识图片 ==========
+    // 绘制技能标识
+    cardData.skills.forEach((_, index) => {
+      if (skillIconImage) {
+        const pos = skillPositions[index]
+        ctx.drawImage(skillIconImage, SKILL_ICON_X, pos.iconY, SKILL_ICON_WIDTH, SKILL_ICON_HEIGHT)
+      }
+    })
+    
+    // 绘制绝技标识
+    if (cardData.ultimate && uniqueIconImage) {
+      ctx.drawImage(uniqueIconImage, ULTIMATE_ICON_X, ultimateIconY, ULTIMATE_ICON_WIDTH, ULTIMATE_ICON_HEIGHT)
+    }
+
+    // ========== 层级5: 所有文字 ==========
     // 绘制编号
     if (cardData.id) {
       ctx.font = `italic ${ID_FONT_SIZE}px Font1, sans-serif`
-      drawStrokedText(ctx, cardData.id, ID_POSITION_X, ID_POSITION_Y, TEXT_STROKE_WIDTH)
+      drawStrokedText(ctx, cardData.id, idX, idY, TEXT_STROKE_WIDTH)
     }
 
     // 绘制姓名
     if (cardData.name) {
       ctx.font = `italic ${NAME_FONT_SIZE}px Font1, sans-serif`
-      drawStrokedText(ctx, cardData.name, NAME_POSITION_X, NAME_POSITION_Y, TEXT_STROKE_WIDTH)
+      drawStrokedText(ctx, cardData.name, nameX, nameY, TEXT_STROKE_WIDTH)
     }
 
     // 绘制属性数值（带倾斜效果）
@@ -205,9 +399,8 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
       ctx.restore()
     }
 
-    // 力量、敏捷、生命
-    drawSkewedNumber(cardData.attributes.power, POWER_POSITION_X, POWER_POSITION_Y, POWER_FONT_SIZE)
-    drawSkewedNumber(cardData.attributes.agility, AGILITY_POSITION_X, AGILITY_POSITION_Y, AGILITY_FONT_SIZE)
+    drawSkewedNumber(cardData.attributes.power, POWER_POSITION_X, powerY, POWER_FONT_SIZE)
+    drawSkewedNumber(cardData.attributes.agility, AGILITY_POSITION_X, agilityY, AGILITY_FONT_SIZE)
     drawSkewedNumber(cardData.attributes.health, HEALTH_POSITION_X, HEALTH_POSITION_Y, HEALTH_FONT_SIZE)
 
     // 绘制种类
@@ -217,66 +410,71 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
       drawStrokedText(ctx, cardData.attributes.category, CATEGORY_POSITION_X, CATEGORY_POSITION_Y, 4)
     }
 
-    // 绘制技能（使用图片背景）
+    // 绘制技能名称和描述文字
     cardData.skills.forEach((skill, index) => {
-      const skillY = index === 0 ? SKILL_1_Y : SKILL_2_Y
-      const nameX = index === 0 ? SKILL_1_NAME_X : SKILL_2_NAME_X
-      const nameY = index === 0 ? SKILL_1_NAME_Y : SKILL_2_NAME_Y
-      const descX = index === 0 ? SKILL_1_DESC_X : SKILL_2_DESC_X
-      const descY = index === 0 ? SKILL_1_DESC_Y : SKILL_2_DESC_Y
-      const iconX = index === 0 ? SKILL_1_ICON_X : SKILL_2_ICON_X
-      const iconY = index === 0 ? SKILL_1_ICON_Y : SKILL_2_ICON_Y
+      const pos = skillPositions[index]
       
-      // 绘制技能背景图片
-      if (skillBgImage) {
-        ctx.drawImage(skillBgImage, SKILL_AREA_X, skillY, SKILL_AREA_WIDTH, SKILL_AREA_HEIGHT)
-      }
-      
-      // SR等级时绘制技能标识图片
-      if (cardData.level === 'SR' && skillIconImage) {
-        ctx.drawImage(skillIconImage, iconX, iconY, SKILL_ICON_WIDTH, SKILL_ICON_HEIGHT)
-      }
-      
-      // 绘制技能名称（右对齐，在标识左侧）
+      // 技能名称
       ctx.textAlign = 'right'
-      ctx.font = `bold ${SKILL_NAME_FONT_SIZE}px Font1, sans-serif`
+      ctx.font = `italic ${SKILL_NAME_FONT_SIZE}px Font1, sans-serif`
       ctx.fillStyle = '#fff'
-      const typeText = skill.type === 'active' ? '【主动】' : '【被动】'
-      drawStrokedText(ctx, `${typeText}${skill.name}`, nameX, nameY, SKILL_NAME_STROKE_WIDTH)
+      const typeText = skill.type === 'active' ? '(主动)' : '(被动)'
+      drawStrokedText(ctx, `${skill.name}${typeText}`, pos.nameX, pos.nameY, SKILL_NAME_STROKE_WIDTH)
       
-      // 绘制技能描述
+      // 技能描述
       if (skill.description) {
-        ctx.textAlign = 'left'
-        ctx.font = `${SKILL_DESC_FONT_SIZE}px sans-serif`
-        drawStrokedText(ctx, skill.description, descX, descY, SKILL_DESC_STROKE_WIDTH)
+        const descMaxWidth = width - 2 * 60
+        const descCenterX = width / 2
+        const lineHeight = SKILL_DESC_FONT_SIZE + 8
+        const { lines, fontSize, lineHeight: actualLineHeight } = calculateWrappedTextLayout(
+          ctx, skill.description, descMaxWidth, lineHeight, SKILL_DESC_FONT_SIZE, 'Font1, sans-serif'
+        )
+        
+        ctx.font = `${fontSize}px Font1, sans-serif`
+        ctx.fillStyle = '#fff'
+        const textBoxLeft = descCenterX - descMaxWidth / 2
+        const textStartY = pos.bgY + 20 + fontSize / 2
+        
+        lines.forEach((line, lineIndex) => {
+          const y = textStartY + lineIndex * actualLineHeight
+          ctx.textAlign = 'left'
+          drawStrokedText(ctx, line, textBoxLeft, y, SKILL_DESC_STROKE_WIDTH)
+        })
       }
     })
 
-    // 绘制绝技（使用图片背景）
+    // 绘制绝技名称和描述文字
     if (cardData.ultimate) {
-      // 绘制绝技背景图片
-      if (uniqueBgImage) {
-        ctx.drawImage(uniqueBgImage, SKILL_AREA_X, ULTIMATE_Y, SKILL_AREA_WIDTH, SKILL_AREA_HEIGHT)
-      }
+      // 绝技名称（向左倾斜）
+      ctx.save()
+      ctx.font = `${ULTIMATE_NAME_FONT_SIZE}px Font1, sans-serif`
+      ctx.fillStyle = '#fff'
+      ctx.textAlign = 'left'
+      ctx.translate(ultimateNameX, ultimateNameY)
+      ctx.transform(1, 0, Math.tan(10 * Math.PI / 180), 1, 0, 0)
+      const typeText = cardData.ultimate.type === 'active' ? '(主动)' : '(被动)'
+      drawStrokedText(ctx, `${cardData.ultimate.name}${typeText}`, 0, 0, SKILL_NAME_STROKE_WIDTH)
+      ctx.restore()
       
-      // SR等级时绘制绝技标识图片
-      if (cardData.level === 'SR' && uniqueIconImage) {
-        ctx.drawImage(uniqueIconImage, ULTIMATE_ICON_X, ULTIMATE_ICON_Y, ULTIMATE_ICON_WIDTH, ULTIMATE_ICON_HEIGHT)
-      }
-      
-      // 绘制绝技名称（右对齐，在标识左侧）
-      ctx.textAlign = 'right'
-      ctx.font = `bold ${ULTIMATE_NAME_FONT_SIZE}px Font1, sans-serif`
-      ctx.fillStyle = '#FFD700' // 金色
-      const typeText = cardData.ultimate.type === 'active' ? '【绝技】' : '【绝技·被动】'
-      drawStrokedText(ctx, `${typeText}${cardData.ultimate.name}`, ULTIMATE_NAME_X, ULTIMATE_NAME_Y, SKILL_NAME_STROKE_WIDTH)
-      
-      // 绘制绝技描述
+      // 绝技描述
       if (cardData.ultimate.description) {
-        ctx.textAlign = 'left'
+        const descMaxWidth = width - 2 * 60
+        const descCenterX = width / 2
+        const lineHeight = ULTIMATE_DESC_FONT_SIZE + 8
+        const { lines, fontSize, lineHeight: actualLineHeight } = calculateWrappedTextLayout(
+          ctx, cardData.ultimate.description, descMaxWidth, lineHeight, ULTIMATE_DESC_FONT_SIZE, 'Font1, sans-serif'
+        )
+        
+        ctx.font = `${fontSize}px Font1, sans-serif`
         ctx.fillStyle = '#fff'
-        ctx.font = `${ULTIMATE_DESC_FONT_SIZE}px sans-serif`
-        drawStrokedText(ctx, cardData.ultimate.description, ULTIMATE_DESC_X, ULTIMATE_DESC_Y, SKILL_DESC_STROKE_WIDTH)
+        const textBoxLeft = descCenterX - descMaxWidth / 2
+        const textStartY = ultimateBgY + 20 + fontSize / 2
+        
+        lines.forEach((line, lineIndex) => {
+          const y = textStartY + lineIndex * actualLineHeight
+          ctx.textAlign = 'left'
+          drawStrokedText(ctx, line, textBoxLeft, y, SKILL_DESC_STROKE_WIDTH)
+        })
       }
     }
 
@@ -307,11 +505,14 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
   }, [cardData.portrait, onPortraitWheel])
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 sticky top-4">
-      <h2 className="text-xl font-semibold text-gray-700 mb-4">卡牌预览</h2>
+    <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg shadow-teal-500/10 p-6 sticky top-4 border border-teal-900/30">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+        <h2 className="text-xl font-semibold bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">卡牌预览</h2>
+      </div>
       <div 
         ref={cardContainerRef}
-        className="w-full overflow-hidden relative"
+        className="w-full overflow-hidden relative rounded-lg ring-2 ring-slate-600/50"
         style={{
           aspectRatio: bgOriginalSize.width > 0 && bgOriginalSize.height > 0 
             ? `${bgOriginalSize.width} / ${bgOriginalSize.height}` 
@@ -333,6 +534,13 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
           style={{ cursor: cardData.portrait ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
         />
       </div>
+      
+      {/* 提示信息 */}
+      {cardData.portrait && (
+        <p className="text-xs text-slate-500 mt-3 text-center">
+          拖拽调整立绘位置 · 滚轮调整大小
+        </p>
+      )}
     </div>
   )
 }
