@@ -66,6 +66,7 @@ interface CardPreviewProps {
   isDragging: boolean
   onPortraitMouseDown: (e: React.MouseEvent) => void
   onPortraitWheel?: (e: WheelEvent) => void
+  onTouchStart?: (e: React.TouchEvent) => void
   portraitRef?: React.RefObject<HTMLDivElement>
   cardContainerRef?: React.RefObject<HTMLDivElement>
 }
@@ -142,7 +143,7 @@ const calculateWrappedTextLayout = (
 }
 
 
-export default function CardPreview({ cardData, isDragging, onPortraitMouseDown, onPortraitWheel, portraitRef, cardContainerRef: externalCardContainerRef }: CardPreviewProps) {
+export default function CardPreview({ cardData, isDragging, onPortraitMouseDown, onPortraitWheel, onTouchStart, portraitRef, cardContainerRef: externalCardContainerRef }: CardPreviewProps) {
   const internalCardContainerRef = useRef<HTMLDivElement>(null)
   const cardContainerRef = externalCardContainerRef || internalCardContainerRef
   const internalPortraitRef = useRef<HTMLDivElement>(null)
@@ -534,8 +535,9 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
         {/* 透明的交互层，用于拖拽立绘 */}
         <div
           ref={refToUse}
-          className="absolute inset-0"
+          className="absolute inset-0 touch-none"
           onMouseDown={onPortraitMouseDown}
+          onTouchStart={onTouchStart}
           style={{ cursor: cardData.portrait ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
         />
       </div>
@@ -543,7 +545,8 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
       {/* 提示信息 */}
       {cardData.portrait && (
         <p className="text-xs text-slate-500 mt-3 text-center">
-          拖拽调整立绘位置 · 滚轮调整大小
+          <span className="hidden sm:inline">拖拽调整立绘位置 · 滚轮调整大小</span>
+          <span className="sm:hidden">单指移动位置 · 双指缩放大小</span>
         </p>
       )}
     </div>
