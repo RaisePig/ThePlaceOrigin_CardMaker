@@ -170,7 +170,8 @@ export default function CardMaker() {
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!cardData.portrait || !portraitRef.current) return
     
-    const touches = e.touches
+    // 使用 nativeEvent 获取原生 DOM Touch 对象
+    const touches = e.nativeEvent.touches
     if (touches.length === 1) {
       // 单指触摸 - 准备拖拽
       const touch = touches[0]
