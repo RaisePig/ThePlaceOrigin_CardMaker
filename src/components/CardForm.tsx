@@ -45,6 +45,8 @@ export default function CardForm({
   
   // 检测是否为移动端
   const [isMobile, setIsMobile] = useState(false)
+  // 将 base64 URL 转换为 Blob URL 以便移动端长按保存
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
   
   useEffect(() => {
     const checkMobile = () => {
@@ -55,6 +57,46 @@ export default function CardForm({
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // 将 base64 URL 转换为 Blob URL（移动端兼容性更好）
+  const blobUrlRef = useRef<string | null>(null)
+  
+  useEffect(() => {
+    // 清理旧的 Blob URL
+    if (blobUrlRef.current && blobUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(blobUrlRef.current)
+      blobUrlRef.current = null
+    }
+    
+    if (previewUrl) {
+      // 如果是 base64 data URL，转换为 Blob URL
+      if (previewUrl.startsWith('data:')) {
+        try {
+          const base64Data = previewUrl.split(',')[1]
+          const byteCharacters = atob(base64Data)
+          const byteNumbers = new Array(byteCharacters.length)
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i)
+          }
+          const byteArray = new Uint8Array(byteNumbers)
+          const blob = new Blob([byteArray], { type: 'image/png' })
+          const url = URL.createObjectURL(blob)
+          blobUrlRef.current = url
+          setBlobUrl(url)
+        } catch (error) {
+          console.error('转换 Blob URL 失败:', error)
+          blobUrlRef.current = previewUrl
+          setBlobUrl(previewUrl) // 降级使用原始 URL
+        }
+      } else {
+        blobUrlRef.current = previewUrl
+        setBlobUrl(previewUrl)
+      }
+    } else {
+      blobUrlRef.current = null
+      setBlobUrl(null)
+    }
+  }, [previewUrl])
 
   const handleClearPortrait = () => {
     // 清除立绘数据
@@ -351,10 +393,10 @@ export default function CardForm({
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
                 <span className="ml-3 text-slate-400">生成预览中...</span>
               </div>
-            ) : previewUrl && (
+            ) : previewUrl && blobUrl && (
               <div className="relative">
                 <img 
-                  src={previewUrl} 
+                  src={blobUrl} 
                   alt="卡牌预览" 
                   className="w-full h-auto preview-image"
                 />
