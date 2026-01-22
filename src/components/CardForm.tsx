@@ -1,6 +1,6 @@
 // 卡牌编辑表单组件
 
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { CardData, Skill, Attributes } from '../types/card'
 
 interface CardFormProps {
@@ -42,6 +42,19 @@ export default function CardForm({
   onCancelPreview
 }: CardFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // 检测是否为移动端
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+        (window.innerWidth <= 768 && 'ontouchstart' in window))
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const handleClearPortrait = () => {
     // 清除立绘数据
@@ -343,11 +356,22 @@ export default function CardForm({
                 <img 
                   src={previewUrl} 
                   alt="卡牌预览" 
-                  className="w-full h-auto"
+                  className="w-full h-auto select-none"
+                  style={{ 
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none',
+                    WebkitTouchCallout: 'default' // 允许移动端长按菜单
+                  }}
+                  draggable={false}
                 />
                 <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
                   {previewType === 'original' ? '原图' : '缩略图'}
                 </div>
+                {isMobile && (
+                  <div className="absolute bottom-2 left-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded text-center">
+                    长按图片可保存到相册
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -393,6 +417,9 @@ export default function CardForm({
         <div className="text-xs text-slate-500 space-y-1">
           <p>• 原图：底图原始尺寸，适用于打印</p>
           <p>• 缩略图：原图一半尺寸，适用于 Tabletop Simulator 等</p>
+          {isMobile && previewUrl && (
+            <p className="text-teal-400 mt-2">💡 移动端：长按预览图可直接保存到相册</p>
+          )}
         </div>
       </div>
     </div>

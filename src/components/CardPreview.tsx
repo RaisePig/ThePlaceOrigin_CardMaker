@@ -156,6 +156,19 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
   const [skillIconImage, setSkillIconImage] = useState<HTMLImageElement | null>(null)
   const [uniqueIconImage, setUniqueIconImage] = useState<HTMLImageElement | null>(null)
   const [bgOriginalSize, setBgOriginalSize] = useState({ width: 0, height: 0 })
+  
+  // 检测是否为移动端
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+        (window.innerWidth <= 768 && 'ontouchstart' in window))
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // 根据等级加载对应底图（使用 Base64 缓存）
   useEffect(() => {
@@ -508,12 +521,112 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
     return () => container.removeEventListener('wheel', handleWheel)
   }, [cardData.portrait, onPortraitWheel])
 
+  // 移动端长按保存状态
+  const [longPressImageUrl, setLongPressImageUrl] = useState<string | null>(null)
+
+  // 处理移动端长按保存
+  const handleLongPress = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !canvasRef.current) return
+    
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const canvas = canvasRef.current
+    const dataUrl = canvas.toDataURL('image/png')
+    
+    // 显示全屏图片供用户长按保存
+    setLongPressImageUrl(dataUrl)
+  }, [isMobile])
+  
+  // 关闭长按图片
+  const closeLongPressImage = useCallback(() => {
+    setLongPressImageUrl(null)
+  }, [])
+
+  // 长按检测
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const touchMovedRef = useRef(false)
+  
+  const handleTouchStartForLongPress = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !canvasRef.current) return
+    
+    const touch = e.nativeEvent.touches[0]
+    touchStartPositionRef.current = { x: touch.clientX, y: touch.clientY }
+    touchMovedRef.current = false
+    
+    // 如果是在调整立绘（有立绘且是单指），不触发长按保存
+    if (cardData.portrait && e.nativeEvent.touches.length === 1 && onTouchStart) {
+      // 先调用原有的触摸处理
+      onTouchStart(e)
+      // 不设置长按定时器，让用户调整立绘
+      return
+    }
+    
+    // 只有在没有立绘，或者双指触摸时，才允许长按保存
+    // 设置长按定时器（500ms）
+    longPressTimerRef.current = setTimeout(() => {
+      if (!touchMovedRef.current) {
+        handleLongPress(e)
+      }
+    }, 500)
+  }, [isMobile, cardData.portrait, onTouchStart, handleLongPress])
+
+  const handleTouchEndForLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    touchStartPositionRef.current = null
+    touchMovedRef.current = false
+  }, [])
+
+  const handleTouchMoveForLongPress = useCallback((e: React.TouchEvent) => {
+    // 如果移动了，取消长按
+    if (touchStartPositionRef.current && e.nativeEvent.touches.length > 0) {
+      const touch = e.nativeEvent.touches[0]
+      const dx = Math.abs(touch.clientX - touchStartPositionRef.current.x)
+      const dy = Math.abs(touch.clientY - touchStartPositionRef.current.y)
+      
+      // 如果移动超过 10px，认为用户是在拖拽而不是长按
+      if (dx > 10 || dy > 10) {
+        touchMovedRef.current = true
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current)
+          longPressTimerRef.current = null
+        }
+      }
+    }
+  }, [])
+
   return (
-    <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg shadow-teal-500/10 p-6 sticky top-4 border border-teal-900/30">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">卡牌预览</h2>
-      </div>
+    <>
+      {/* 移动端长按保存全屏图片 */}
+      {longPressImageUrl && isMobile && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={closeLongPressImage}
+          onTouchStart={closeLongPressImage}
+        >
+          <img
+            src={longPressImageUrl}
+            alt="卡牌预览"
+            className="max-w-full max-h-full object-contain"
+            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+            onContextMenu={(e) => e.preventDefault()}
+          />
+          <div className="absolute bottom-4 left-0 right-0 text-center text-white text-sm">
+            <p>长按图片保存到相册</p>
+            <p className="text-xs text-gray-400 mt-1">点击任意位置关闭</p>
+          </div>
+        </div>
+      )}
+      
+      <div className="bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg shadow-teal-500/10 p-6 sticky top-4 border border-teal-900/30">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
+          <h2 className="text-xl font-semibold bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">卡牌预览</h2>
+        </div>
       <div 
         ref={cardContainerRef}
         className="w-full overflow-hidden relative rounded-lg ring-2 ring-slate-600/50 protected-resource"
@@ -537,18 +650,30 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
           ref={refToUse}
           className="absolute inset-0 touch-none"
           onMouseDown={onPortraitMouseDown}
-          onTouchStart={onTouchStart}
+          onTouchStart={isMobile ? handleTouchStartForLongPress : onTouchStart}
+          onTouchEnd={isMobile ? handleTouchEndForLongPress : undefined}
+          onTouchMove={isMobile ? handleTouchMoveForLongPress : undefined}
           style={{ cursor: cardData.portrait ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
         />
       </div>
       
       {/* 提示信息 */}
       {cardData.portrait && (
-        <p className="text-xs text-slate-500 mt-3 text-center">
-          <span className="hidden sm:inline">拖拽调整立绘位置 · 滚轮调整大小</span>
-          <span className="sm:hidden">单指移动位置 · 双指缩放大小</span>
-        </p>
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-slate-500 text-center">
+            <span className="hidden sm:inline">拖拽调整立绘位置 · 滚轮调整大小</span>
+            <span className="sm:hidden">单指移动位置 · 双指缩放大小 · 长按预览图保存</span>
+          </p>
+          {isMobile && (
+            <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg p-2">
+              <p className="text-xs text-teal-300 text-center">
+                📱 在预览框内滑动调整图片 · 在预览框外滑动调整页面
+              </p>
+            </div>
+          )}
+        </div>
       )}
     </div>
+    </>
   )
 }
