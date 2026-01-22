@@ -345,7 +345,7 @@ export default function CardForm({
         
         {/* 预览图显示区域 */}
         {(previewUrl || previewLoading) && (
-          <div className="mb-4 border border-slate-600 rounded-lg overflow-hidden bg-slate-900/50 preview-image-container">
+          <div className="mb-4 border border-slate-600 rounded-lg overflow-hidden bg-slate-900/50">
             {previewLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
@@ -357,20 +357,6 @@ export default function CardForm({
                   src={previewUrl} 
                   alt="卡牌预览" 
                   className="w-full h-auto preview-image"
-                  style={{ 
-                    WebkitTouchCallout: 'default', // 允许移动端长按菜单
-                    WebkitUserSelect: 'none',
-                    userSelect: 'none',
-                    touchAction: 'manipulation', // 优化触摸响应
-                    pointerEvents: 'auto' // 允许触摸事件
-                  }}
-                  draggable={false}
-                  onContextMenu={(e) => {
-                    // 在移动端不阻止默认行为，允许长按菜单
-                    if (!isMobile) {
-                      e.preventDefault()
-                    }
-                  }}
                 />
                 <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
                   {previewType === 'original' ? '原图' : '缩略图'}

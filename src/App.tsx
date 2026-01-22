@@ -10,11 +10,11 @@ function useResourceProtection() {
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement
       // 对图片、canvas 和带有 protected 类的元素禁用右键
-      // 但允许预览图片（.preview-image）在移动端长按保存
+      // 但允许预览图片（.preview-image）不被保护
       if (
-        (target.tagName === 'IMG' && !target.closest('.preview-image-container')) ||
+        (target.tagName === 'IMG' && !target.classList.contains('preview-image')) ||
         target.tagName === 'CANVAS' ||
-        (target.closest('.protected-resource') && !target.closest('.preview-image-container')) ||
+        target.closest('.protected-resource') ||
         target.closest('canvas')
       ) {
         e.preventDefault()
@@ -25,7 +25,11 @@ function useResourceProtection() {
     // 禁用拖拽
     const handleDragStart = (e: DragEvent) => {
       const target = e.target as HTMLElement
-      if (target.tagName === 'IMG' || target.tagName === 'CANVAS') {
+      // 允许预览图片不被保护
+      if (
+        (target.tagName === 'IMG' && !target.classList.contains('preview-image')) ||
+        target.tagName === 'CANVAS'
+      ) {
         e.preventDefault()
         return false
       }
