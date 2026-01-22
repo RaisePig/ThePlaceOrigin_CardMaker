@@ -96,6 +96,12 @@ img {
   pointer-events: none;
 }
 
+/* 预览图片允许交互（用于移动端长按保存） */
+.preview-image-container .preview-image {
+  pointer-events: auto !important;
+  -webkit-touch-callout: default !important;
+}
+
 /* 禁止 Canvas 选择 */
 canvas {
   -webkit-user-select: none;
