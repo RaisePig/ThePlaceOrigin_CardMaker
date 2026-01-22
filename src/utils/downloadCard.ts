@@ -476,15 +476,61 @@ export const generateCardPreview = async (
 }
 
 /**
+ * 将 Base64 字符串转换为 Blob
+ */
+const base64ToBlob = (base64: string, mimeType: string = 'image/png'): Blob => {
+  // 移除 data URL 前缀（如 "data:image/png;base64,"）
+  const base64Data = base64.includes(',') ? base64.split(',')[1] : base64
+  
+  // 将 Base64 字符串转换为二进制数据
+  const byteCharacters = atob(base64Data)
+  const byteNumbers = new Array(byteCharacters.length)
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i)
+  }
+  const byteArray = new Uint8Array(byteNumbers)
+  
+  return new Blob([byteArray], { type: mimeType })
+}
+
+/**
  * 下载卡牌图片（从预览图 URL 下载）
+ * 使用 Blob URL 以确保移动端兼容性和正确的文件大小显示
  * @param previewUrl 预览图 URL（base64）
  * @param filename 文件名
  */
 export const downloadFromPreview = (previewUrl: string, filename: string) => {
-  const link = document.createElement('a')
-  link.href = previewUrl
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  try {
+    // 将 Base64 URL 转换为 Blob
+    const blob = base64ToBlob(previewUrl, 'image/png')
+    
+    // 创建 Blob URL
+    const blobUrl = URL.createObjectURL(blob)
+    
+    // 创建下载链接
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = filename
+    link.style.display = 'none'
+    
+    // 添加到 DOM，触发下载，然后移除
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // 延迟清理 Blob URL，确保下载完成
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl)
+    }, 100)
+  } catch (error) {
+    console.error('下载失败:', error)
+    // 降级方案：直接使用 Base64 URL
+    const link = document.createElement('a')
+    link.href = previewUrl
+    link.download = filename
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 }
