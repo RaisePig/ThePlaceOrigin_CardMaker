@@ -1,6 +1,7 @@
 // 卡牌下载工具函数 - 使用 Canvas API 直接绘制
 
 import { loadImage, getBgImagePath, getSkillIconPath, getUniqueIconPath, drawWatermark } from './resourceLoader'
+import { getAppConfig } from './appConfig'
 import {
   NAME_POSITION_X,
   NAME_POSITION_Y,
@@ -150,6 +151,7 @@ const loadPortraitImage = (src: string): Promise<HTMLImageElement> => {
 
 /**
  * 生成原始尺寸的卡牌 Canvas（内部使用）
+ * @param watermarkEnabled 是否绘制水印，由后台 app-config.json 控制
  */
 const generateFullSizeCanvas = async (
   cardData: CardData,
@@ -157,7 +159,8 @@ const generateFullSizeCanvas = async (
   skillBgImage: HTMLImageElement,
   uniqueBgImage: HTMLImageElement,
   skillIconImage: HTMLImageElement,
-  uniqueIconImage: HTMLImageElement
+  uniqueIconImage: HTMLImageElement,
+  watermarkEnabled: boolean = false
 ): Promise<HTMLCanvasElement> => {
   const width = bgImage.naturalWidth
   const height = bgImage.naturalHeight
@@ -408,8 +411,10 @@ const generateFullSizeCanvas = async (
   // 恢复文字对齐方式
   ctx.textAlign = 'center'
 
-  // ========== 层级6: 水印 ==========
-  drawWatermark(ctx, width, height)
+  // ========== 层级6: 水印（由后台 app-config.json 的 watermarkEnabled 控制）==========
+  if (watermarkEnabled) {
+    drawWatermark(ctx, width, height)
+  }
 
   return canvas
 }
@@ -424,8 +429,9 @@ const generateCardCanvas = async (
   cardData: CardData,
   scale: number = 1
 ): Promise<HTMLCanvasElement> => {
-  // 加载所有需要的图片（根据等级加载对应的标识图片）
-  const [bgImage, skillBgImage, uniqueBgImage, skillIconImage, uniqueIconImage] = await Promise.all([
+  // 加载配置与图片
+  const [appConfig, bgImage, skillBgImage, uniqueBgImage, skillIconImage, uniqueIconImage] = await Promise.all([
+    getAppConfig(),
     loadImage(getBgImagePath(cardData.level)),
     loadImage('/resources/skill_bg.png'),
     loadImage('/resources/unique_bg.png'),
@@ -433,8 +439,8 @@ const generateCardCanvas = async (
     loadImage(getUniqueIconPath(cardData.level))
   ])
   
-  // 先生成原始尺寸的高清图
-  const fullSizeCanvas = await generateFullSizeCanvas(cardData, bgImage, skillBgImage, uniqueBgImage, skillIconImage, uniqueIconImage)
+  // 先生成原始尺寸的高清图（水印由后台配置控制）
+  const fullSizeCanvas = await generateFullSizeCanvas(cardData, bgImage, skillBgImage, uniqueBgImage, skillIconImage, uniqueIconImage, appConfig.watermarkEnabled)
   
   // 如果是原图，直接返回
   if (scale === 1) {

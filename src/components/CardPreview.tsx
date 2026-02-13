@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { CardData } from '../types/card'
 import { loadImage, getBgImagePath, getSkillIconPath, getUniqueIconPath, drawWatermark } from '../utils/resourceLoader'
+import { getAppConfig } from '../utils/appConfig'
 import {
   NAME_POSITION_X,
   NAME_POSITION_Y,
@@ -156,9 +157,16 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
   const [skillIconImage, setSkillIconImage] = useState<HTMLImageElement | null>(null)
   const [uniqueIconImage, setUniqueIconImage] = useState<HTMLImageElement | null>(null)
   const [bgOriginalSize, setBgOriginalSize] = useState({ width: 0, height: 0 })
+  /** 水印是否开启，由后台 app-config.json 控制 */
+  const [watermarkEnabled, setWatermarkEnabled] = useState(false)
   
   // 检测是否为移动端
   const [isMobile, setIsMobile] = useState(false)
+
+  // 加载应用配置（水印开关等）
+  useEffect(() => {
+    getAppConfig().then((config) => setWatermarkEnabled(config.watermarkEnabled))
+  }, [])
   
   useEffect(() => {
     const checkMobile = () => {
@@ -495,9 +503,11 @@ export default function CardPreview({ cardData, isDragging, onPortraitMouseDown,
     // 恢复文字对齐方式
     ctx.textAlign = 'center'
 
-    // ========== 层级6: 水印 ==========
-    drawWatermark(ctx, width, height)
-  }, [bgImage, portraitImage, cardData, skillBgImage, uniqueBgImage, skillIconImage, uniqueIconImage])
+    // ========== 层级6: 水印（由后台 app-config.json 的 watermarkEnabled 控制）==========
+    if (watermarkEnabled) {
+      drawWatermark(ctx, width, height)
+    }
+  }, [bgImage, portraitImage, cardData, skillBgImage, uniqueBgImage, skillIconImage, uniqueIconImage, watermarkEnabled])
 
   // 当数据变化时重新渲染
   useEffect(() => {
